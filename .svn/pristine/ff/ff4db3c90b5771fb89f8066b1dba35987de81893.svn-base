@@ -1,0 +1,112 @@
+/*-------------------------------------------------------------------------
+ *
+ * tuplestore.h
+ *	  Generalized routines for temporary tuple storage.
+ *
+ * This module handles temporary storage of tuples for purposes such
+ * as Materialize nodes, hashjoin batch files, etc.  It is essentially
+ * a dumbed-down version of tuplesort.c; it does no sorting of tuples
+ * but can only store and regurgitate a sequence of tuples.  However,
+ * because no sort is required, it is allowed to start reading the sequence
+ * before it has all been written.	This is particularly useful for cursors,
+ * because it allows random access within the already-scanned portion of
+ * a query without having to process the underlying scan to completion.
+ * Also, it is possible to support multiple independent read pointers.
+ *
+ * A temporary file is used to handle the data if it exceeds the
+ * space limit specified by the caller.
+ *
+ * Beginning in Postgres 8.2, what is stored is just MinimalTuples;
+ * callers cannot expect valid system columns in regurgitated tuples.
+ * Also, we have changed the API to return tuples in TupleTableSlots,
+ * so that there is a check to prevent attempted access to system columns.
+ *
+ * Portions Copyright (c) 1996-2011, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1994, Regents of the University of California
+ *
+ * src/include/utils/tuplestore.h
+ *
+ *-------------------------------------------------------------------------
+ */
+#ifndef TUPLESTORE_H
+#define TUPLESTORE_H
+
+#include "executor/tuptable.h"
+
+//#ifdef WIN_FUN_OPT
+//#include "nodes/execnodes.h"
+//#endif
+
+/* Tuplestorestate is an opaque type whose details are not known outside
+ * tuplestore.c.
+ */
+typedef struct Tuplestorestate Tuplestorestate;
+
+
+//#ifdef WIN_FUN_OPT
+//extern void tuplestore_set_opt(Tuplestorestate *state, WindowAggState *winstate);
+extern void tuplestore_init_opt(Tuplestorestate *state, TupleDesc opt_tupdesc, AttrNumber *useful2init, int opt_maxPos, TupleTableSlot *slot);
+extern void opt_tuplestore_select_read_pointer(Tuplestorestate *state, int ptr);
+extern void tuplestore_convert_to_opt(Tuplestorestate *state, TupleTableSlot *slot, TupleTableSlot *opt_slot);
+extern bool opt_tuplestore_gettupleslot(Tuplestorestate *state, bool forward, bool copy, TupleTableSlot *slot);
+extern bool opt_tuplestore_advance(Tuplestorestate *state, bool forward);
+extern void opt_tuplestore_puttupleslot(Tuplestorestate *state, TupleTableSlot *slot);
+extern void opt_tuplestore_end(Tuplestorestate *state);
+extern bool init_tuplestore_gettupleslot(Tuplestorestate *state, bool forward, bool copy, TupleTableSlot *slot);
+extern void init_tuplestore_select_read_pointer(Tuplestorestate *state, int ptr);
+extern void opt_tuplestore_instr_BufFile(Tuplestorestate *state);
+extern void opt_tuplestore_instr_TupleStore(Tuplestorestate *state);
+extern void opt_tuplestore_updatewritepos(Tuplestorestate *state);
+extern void opt_tuplestore_set_locateheadpos(Tuplestorestate *state, bool flag);
+extern void opt_tuplestore_copy_frameheadptr(Tuplestorestate *state);
+extern void opt_tuplestore_update_frameheadptr(Tuplestorestate *state, int64 distance);
+extern void opt_tuplestore_init_frameheadptr(Tuplestorestate *state);
+extern void opt_tuplestore_copy_ptr(Tuplestorestate *state, int dst, int src);
+extern void	opt_tuplestore_seek_ptr(Tuplestorestate *state, int readptr);
+//extern Tuplestorestate * opt_tuplestore_begin_heap(bool randomAccess, bool interXact, int maxKBytes);
+//#endif
+
+/*
+ * Currently we only need to store MinimalTuples, but it would be easy
+ * to support the same behavior for IndexTuples and/or bare Datums.
+ */
+
+extern Tuplestorestate *tuplestore_begin_heap(bool randomAccess,
+					  bool interXact,
+					  int maxKBytes);
+
+extern void tuplestore_set_eflags(Tuplestorestate *state, int eflags);
+
+extern void tuplestore_puttupleslot(Tuplestorestate *state,
+						TupleTableSlot *slot);
+extern void tuplestore_puttuple(Tuplestorestate *state, HeapTuple tuple);
+extern void tuplestore_putvalues(Tuplestorestate *state, TupleDesc tdesc,
+					 Datum *values, bool *isnull);
+
+/* tuplestore_donestoring() used to be required, but is no longer used */
+#define tuplestore_donestoring(state)	((void) 0)
+
+extern int	tuplestore_alloc_read_pointer(Tuplestorestate *state, int eflags);
+
+extern void tuplestore_select_read_pointer(Tuplestorestate *state, int ptr);
+
+extern void tuplestore_copy_read_pointer(Tuplestorestate *state,
+							 int srcptr, int destptr);
+
+extern void tuplestore_trim(Tuplestorestate *state);
+
+extern bool tuplestore_in_memory(Tuplestorestate *state);
+
+extern bool tuplestore_gettupleslot(Tuplestorestate *state, bool forward,
+						bool copy, TupleTableSlot *slot);
+extern bool tuplestore_advance(Tuplestorestate *state, bool forward);
+
+extern bool tuplestore_ateof(Tuplestorestate *state);
+
+extern void tuplestore_rescan(Tuplestorestate *state);
+
+extern void tuplestore_clear(Tuplestorestate *state);
+
+extern void tuplestore_end(Tuplestorestate *state);
+
+#endif   /* TUPLESTORE_H */

@@ -1,0 +1,5 @@
+1. use the useful attributes to compute instead the original tuples. the eval_windowaggregates() has been verified, eval_windowfunction() is not yet.
+
+2. after this version, WIN_FUN_OPT will chang to enable_winfunopt in guc for its convinience of debugging in a script.
+
+3. 20120807, enable_winfunopt is set, log of time more detail, verify window functions. Note: not yet checked.
